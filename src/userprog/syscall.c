@@ -9,6 +9,7 @@
 #include "filesys/file.h"
 #include "devices/input.h"
 #include "lib/kernel/stdio.h"
+#include "threads/vaddr.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -72,6 +73,7 @@ syscall_handler (struct intr_frame *f UNUSED)
   {
       // Get the file associated to the given fd
       int fd = user_stack[1];
+      if (0 > fd || fd >= MAX_FILES + NB_RESERVED_FILES) return;
       struct thread* calling_thread = thread_current();
       struct file* to_close = calling_thread->files[fd];
 
@@ -90,11 +92,16 @@ syscall_handler (struct intr_frame *f UNUSED)
       if (fd == STDIN_FILENO)
       {
           size_t to_read = user_stack[3];
-
+          char* buffer = (char *)user_stack[2];
+          // Check that the user can access this memory
+          if (buffer >= PHYS_BASE)
+          {
+              f->eax = -1;
+              return;
+          }
           // Read from the console to_read times
           for (size_t i = 0; i < to_read; ++i)
           {
-              char* buffer = (char *)user_stack[2];
               buffer[i] = input_getc();
           }
           f->eax = to_read;
@@ -104,6 +111,11 @@ syscall_handler (struct intr_frame *f UNUSED)
       // If we want to read from the file
       else if(fd != STDOUT_FILENO)
       {
+          if (0 > fd || fd >= MAX_FILES + NB_RESERVED_FILES)
+          {
+              f->eax = -1;
+              return;
+          }
           // Get the file associated to the fd, exit if doesn't exist
           struct thread* calling_thread = thread_current();
           struct file* to_read = calling_thread->files[fd];
@@ -114,6 +126,12 @@ syscall_handler (struct intr_frame *f UNUSED)
           }
           // Read from the file
           void* buffer = (void *)(user_stack[2]);
+          // Check that the user can access this memory
+          if (buffer >= PHYS_BASE)
+          {
+              f->eax = -1;
+              return;
+          }
           unsigned size_to_read = (unsigned)user_stack[3];
           int read = file_read(to_read, buffer, size_to_read);
 
@@ -143,6 +161,11 @@ syscall_handler (struct intr_frame *f UNUSED)
       // If we want to write to the file
       else if (fd != STDIN_FILENO)
       {
+          if (0 > fd || fd >= MAX_FILES + NB_RESERVED_FILES)
+          {
+              f->eax = -1;
+              return;
+          }
           // Get the associated file, exit if no existing
           struct thread* calling_thread = thread_current();
           struct file* to_write = calling_thread->files[fd];
@@ -153,6 +176,11 @@ syscall_handler (struct intr_frame *f UNUSED)
           }
           // Write to the file
           void* buffer = (void*)user_stack[2];
+          if (buffer >= PHYS_BASE)
+          {
+              f->eax = -1;
+              return;
+          }
           unsigned size_to_write = (unsigned)user_stack[3];
           int written = file_write(to_write, buffer, size_to_write);
 
@@ -174,6 +202,7 @@ syscall_handler (struct intr_frame *f UNUSED)
           if (calling_thread->files[i] != NULL)
           {
               file_close(calling_thread->files[i]);
+              calling_thread->files[i] = NULL;
           }
       }
       // exit the thread

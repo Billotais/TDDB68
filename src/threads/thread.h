@@ -99,7 +99,7 @@ struct thread
     uint32_t *pagedir;                  /* Page directory. */
 #endif
 #ifdef USERPROG
-    // To save the association betwene a file and a fd. 
+    // To save the association betwene a file and a fd.
     //We use 130 slots, with 0 and 1 reserved for the console
     struct file* files[MAX_FILES + NB_RESERVED_FILES];
 #endif
