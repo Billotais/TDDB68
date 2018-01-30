@@ -437,11 +437,13 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
 
+  #ifdef USERPROG 
   // We initializa all the values to NULL, will be used to know if the file is opend
   for (int i = 0; i < MAX_FILES + NB_RESERVED_FILES; ++i)
   {
       t->files[i] = NULL;
   }
+  #endif
 
 }
 

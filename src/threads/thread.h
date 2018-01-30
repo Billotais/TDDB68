@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "threads/synch.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -107,6 +108,11 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
   };
 
+struct sleepthread {
+  struct list_elem elem;
+  struct semaphore sema_value;
+  int64_t time_of_wake;
+};
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
