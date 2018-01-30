@@ -34,11 +34,9 @@ static bool too_many_loops (unsigned loops);
 static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 
-bool cmp_thread_time (const struct list_elem *a, const struct list_elem *b, void *aux);
-
-
+static bool cmp_thread_time (const struct list_elem *a, const struct list_elem *b, void *aux);
 // compares to list elements of tzpe sleepthread bz their waking time value, inceaesing order.
-bool cmp_thread_time (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+static bool cmp_thread_time (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
   struct sleepthread* first  = list_entry(a, struct sleepthread, elem);
   struct sleepthread* second = list_entry(b, struct sleepthread, elem);
@@ -132,7 +130,7 @@ timer_sleep (int64_t ticks)
   list_insert_ordered(&sleeping_list, &current_sleepthread.elem, cmp_thread_time, NULL);
   sema_down(&(current_sleepthread.sema_value));
 
-  // We can now diable interrupts
+  // We can now re-enable interrupts
   intr_set_level(old_level);
 }
 
@@ -173,7 +171,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
   thread_tick ();
 
   // Disable interrupts so we don't break the list
-  enum intr_level old_level = intr_disable ();
+  //enum intr_level old_level = intr_disable ();
 
   struct list_elem* curr = list_begin(&sleeping_list);
   while (curr != list_end(&sleeping_list))
@@ -192,8 +190,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
   }
 
   // We can now re-enable interrupts
-  intr_set_level(old_level);
-
+  //intr_set_level(old_level);
 
 }
 
