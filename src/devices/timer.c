@@ -170,9 +170,6 @@ timer_interrupt (struct intr_frame *args UNUSED)
   ticks++;
   thread_tick ();
 
-  // Disable interrupts so we don't break the list
-  //enum intr_level old_level = intr_disable ();
-
   struct list_elem* curr = list_begin(&sleeping_list);
   while (curr != list_end(&sleeping_list))
   {
@@ -188,9 +185,6 @@ timer_interrupt (struct intr_frame *args UNUSED)
     // If the current eleement musn't be awaken, we don't look further since list is ordered
     else break;
   }
-
-  // We can now re-enable interrupts
-  //intr_set_level(old_level);
 
 }
 
