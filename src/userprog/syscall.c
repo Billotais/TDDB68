@@ -1,4 +1,5 @@
 #include "userprog/syscall.h"
+#include "userprog/process.h"
 #include <stdio.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
@@ -95,7 +96,7 @@ syscall_handler (struct intr_frame *f UNUSED)
           size_t to_read = user_stack[3];
           char* buffer = (char *)user_stack[2];
           // Check that the user can access this memory
-          if (buffer >= PHYS_BASE)
+          if ((void*)buffer >= PHYS_BASE)
           {
               f->eax = -1;
               return;
@@ -190,9 +191,9 @@ syscall_handler (struct intr_frame *f UNUSED)
       }
       f->eax = -1;
   }
-  else if (*user_stacl == SYS_EXEC)
+  else if (*user_stack == SYS_EXEC)
   {
-      const char* cmd_line = user_stack[1];
+      const char* cmd_line = (const char*)user_stack[1];
 
       // WARNING NEED TO CHAGE CMD_LINE LATER
       // DON'T HANDLE ARGUMENTS YET
@@ -202,14 +203,19 @@ syscall_handler (struct intr_frame *f UNUSED)
   }
   else if (*user_stack == SYS_WAIT)
   {
-      pid_t = user_stack[1];
+      tid_t id = (tid_t)user_stack[1];
+      struct thread* calling_thread = thread_current();
+     // struct parent_child* sync = calling_thread->p_c;
+
 
   }
   else if (*user_stack == SYS_EXIT)
   {
       // Get the calling thread
-      f->eax = user_stack[1];
+      int exit_value = user_stack[1];
+      f->eax = exit_value;
       struct thread* calling_thread = thread_current();
+      //TODO for all parents, set the exit_status in the p_c pairs
 
       // For each file
       for (int i = 0; i < MAX_FILES + NB_RESERVED_FILES; ++i)
@@ -222,6 +228,8 @@ syscall_handler (struct intr_frame *f UNUSED)
           }
       }
       // exit the thread
+
+      printf("%s: exit(%d)\n", calling_thread->name, exit_value);
       thread_exit ();
   }
 }

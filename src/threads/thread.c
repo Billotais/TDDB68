@@ -443,6 +443,8 @@ init_thread (struct thread *t, const char *name, int priority)
   {
       t->files[i] = NULL;
   }
+  list_init(&t->children_list);
+  t->parent = NULL;
   #endif
 
 }

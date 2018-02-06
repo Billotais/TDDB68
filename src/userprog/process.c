@@ -15,6 +15,7 @@
 #include "threads/init.h"
 #include "threads/interrupt.h"
 #include "threads/palloc.h"
+#include "threads/malloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
@@ -41,37 +42,45 @@ process_execute (const char *file_name)
   /* Create a new thread to execute FILE_NAME. */
 
   // Initialize a struct we argument we want to use between the child and the parent
-  struct parent_child sync;
+  struct parent_child* sync = malloc(sizeof(struct parent_child));
 
-  sema_init(&sync.sema); //A semaphore for the wait
-  sync.file_name = fn_copy; // The program name
-  sync.success = true; // The return value of start_process
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, &sync)
+  sema_init(&sync->sema, 0); //A semaphore for the wait
+  sync->file_name = fn_copy; // The program name
+  sync->success = true; // The return value of start_process
+  tid = thread_create (file_name, PRI_DEFAULT, start_process, sync);
 
   // Now we must wait for the child thread to be created before returning it
   // use a semaphore, lock it here, wait until awaken by child
-  sema_down(&sync.sema);
+  sema_down(&sync->sema);
 
   // We get awaken by child
   // Get the value of success fpr start_process
-  bool success = sync.success;
+  bool success = sync->success;
 
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy);
 
   // if program didn't run, return -1
-  if (!sucess) return -1;
-  else return tid;
+  if (!success)
+  {
+      free(sync);
+      return -1;
+  }
+  struct thread* calling_thread = thread_current();
+  list_insert(&(calling_thread->children_list), &sync->elem);
+
+  return tid;
 }
 
 /* A thread function that loads a user process and starts it
    running. */
 static void
 //start_process (void *file_name_)
-start_process (void *args_)
+start_process (void *args)
 {
   //char *file_name = file_name_;
-  char *file_name = args->file_name;
+  struct parent_child* sync = (struct parent_child*)args;
+  char *file_name = sync->file_name;
 
   struct intr_frame if_;
   bool success;
@@ -87,14 +96,16 @@ start_process (void *args_)
   // TODO wake the parent process
   // So that he can return the tid
   // we have access to the semaphore given bye the parent, we can unlock it
-  args->succes = sucess
-  sema_up(&args->sema);
+  sync->success = success;
+  sema_up(&sync->sema);
 
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success)
     thread_exit ();
+  struct thread* calling_thread = thread_current();
+  calling_thread->parent = sync;
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -127,6 +138,9 @@ void
 process_exit (void)
 {
   struct thread *cur = thread_current ();
+
+
+  // TODO decrease status_count of all children of cur thread and of the parent of the thread
   uint32_t *pd;
 
   /* Destroy the current process's page directory and switch back
