@@ -182,7 +182,7 @@ thread_create (const char *name, int priority,
   kf = alloc_frame (t, sizeof *kf);
   kf->eip = NULL;
   kf->function = function;
-  kf->aux = aux;
+  kf->aux = aux; // function args
 
   /* Stack frame for switch_entry(). */
   ef = alloc_frame (t, sizeof *ef);
@@ -437,7 +437,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
 
-  #ifdef USERPROG 
+  #ifdef USERPROG
   // We initializa all the values to NULL, will be used to know if the file is opend
   for (int i = 0; i < MAX_FILES + NB_RESERVED_FILES; ++i)
   {

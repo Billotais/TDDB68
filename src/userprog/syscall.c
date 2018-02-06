@@ -11,6 +11,7 @@
 #include "lib/kernel/stdio.h"
 #include "threads/vaddr.h"
 
+
 static void syscall_handler (struct intr_frame *);
 
 void
@@ -188,6 +189,21 @@ syscall_handler (struct intr_frame *f UNUSED)
           return;
       }
       f->eax = -1;
+  }
+  else if (*user_stacl == SYS_EXEC)
+  {
+      const char* cmd_line = user_stack[1];
+
+      // WARNING NEED TO CHAGE CMD_LINE LATER
+      // DON'T HANDLE ARGUMENTS YET
+      tid_t tid = process_execute(cmd_line);
+      f->eax = tid;
+
+  }
+  else if (*user_stack == SYS_WAIT)
+  {
+      pid_t = user_stack[1];
+
   }
   else if (*user_stack == SYS_EXIT)
   {
