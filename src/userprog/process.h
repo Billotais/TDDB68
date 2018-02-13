@@ -13,6 +13,7 @@ struct parent_child {
     struct list_elem elem;
     tid_t child_id;
     struct semaphore sema;
+    bool has_already_wait;
     char* file_name;
     bool success;
     int exit_status;
