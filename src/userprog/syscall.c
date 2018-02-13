@@ -4,7 +4,7 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
-
+#include "threads/synch.h"
 #include "threads/init.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
@@ -204,8 +204,8 @@ syscall_handler (struct intr_frame *f UNUSED)
   else if (*user_stack == SYS_WAIT)
   {
       tid_t id = (tid_t)user_stack[1];
-      struct thread* calling_thread = thread_current();
-     // struct parent_child* sync = calling_thread->p_c;
+      int exit_value = process_wait(id);
+      f->eax = exit_value;
 
 
   }
@@ -215,7 +215,10 @@ syscall_handler (struct intr_frame *f UNUSED)
       int exit_value = user_stack[1];
       f->eax = exit_value;
       struct thread* calling_thread = thread_current();
-      //TODO for all parents, set the exit_status in the p_c pairs
+      // Make the exit value availible for the parents
+      if (calling_thread->parent) calling_thread->parent->exit_status = exit_value;
+      // Wake up any parent that might be waiting
+      sema_up(&calling_thread->parent->sema);
 
       // For each file
       for (int i = 0; i < MAX_FILES + NB_RESERVED_FILES; ++i)
