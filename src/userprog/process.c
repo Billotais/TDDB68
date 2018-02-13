@@ -159,8 +159,6 @@ process_wait (tid_t child_tid)
   return -1;
 }
 
-
-
 //Try to free a parent_child pair, 1 if success, 0 otherwise
 int free_parent_child_pair(struct parent_child* p_c)
 {

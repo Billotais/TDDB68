@@ -216,10 +216,9 @@ syscall_handler (struct intr_frame *f UNUSED)
       f->eax = exit_value;
       struct thread* calling_thread = thread_current();
       // Make the exit value availible for the parents
-      if (calling_thread->parent) calling_thread->parent->exit_status = exit_value;
+      calling_thread->parent->exit_status = exit_value;
       // Wake up any parent that might be waiting
       sema_up(&calling_thread->parent->sema);
-      //calling_thread->parent->has_already_wait = true;
       //calling_thread->parent->has_already_wait = true;
 
       // For each file
