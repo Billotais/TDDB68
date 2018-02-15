@@ -50,6 +50,7 @@ process_execute (const char *file_name)
   sync->success = true; // The return value of start_process
   sync->alive_count = 2; // Count to know who must free ressources
   sync->has_already_wait = false;
+
   lock_init(&sync->alive_lock); // A lock to provide sync to alive_count
 
   tid = thread_create (file_name, PRI_DEFAULT, start_process, sync);
@@ -149,9 +150,12 @@ process_wait (tid_t child_tid)
     // if this is the correct pair, we down the semaphore
     if (pair->child_id == child_tid && !pair->has_already_wait)
     {
+      //printf("pair exit value is %d", pair->exit_status);
       pair->has_already_wait = true;
       sema_down(&pair->sema);
       // When awaken, we have access to the exit value of the child
+      //printf("exit value %d", pair->exit_status);
+      //printf("pair exit value is %d", pair->exit_status);
       return pair->exit_status;
     }
     else cur_elem = list_next(cur_elem);
@@ -175,10 +179,9 @@ int free_parent_child_pair(struct parent_child* p_c)
 
       return 1;
     }
-    p_c->has_already_wait = true;
+    //p_c->has_already_wait = true;
     lock_release(&p_c->alive_lock);
   }
-
   return 0;
 }
 /* Free the current process's resources. */
