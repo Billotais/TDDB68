@@ -1,5 +1,6 @@
 #include "userprog/syscall.h"
 #include "userprog/process.h"
+#include "userprog/pagedir.h"
 #include <stdio.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
@@ -36,9 +37,9 @@ bool valid_pointer(void* ptr)
 // Check every character's pointer with valid_pointer, until \0, exit if not valid
 void valid_string(const char* ptr)
 {
-    char* prov = ptr;
+    const char* prov = ptr;
     do {
-        if (!valid_pointer(prov)) exit(-1);
+        if (!valid_pointer((void*)prov)) exit(-1);
         prov +=1;
     } while(*prov != '\0');
 
@@ -151,12 +152,6 @@ syscall_handler (struct intr_frame *f UNUSED)
 
           valid_buffer(buffer, to_read);
 
-          // Check that the user can access this memory
-          /*if ((void*)buffer >= PHYS_BASE)
-          {
-              f->eax = -1;
-              return;
-          }*/
           // Read from the console to_read times
           for (size_t i = 0; i < to_read; ++i)
           {
@@ -243,11 +238,7 @@ syscall_handler (struct intr_frame *f UNUSED)
           // Get arguments
           user_stack = incr_and_check(user_stack);
           void* buffer = (void*)*user_stack;
-          /*if (buffer >= PHYS_BASE)
-          {
-              f->eax = -1;
-              return;
-          }*/
+    
           user_stack = incr_and_check(user_stack);
           unsigned size_to_write = (unsigned)*user_stack;
 
@@ -312,7 +303,7 @@ void exit(int exit_value)
             calling_thread->files[i] = NULL;
         }
     }
-    
+
     // exit the thread
     thread_exit ();
 }
