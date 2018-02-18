@@ -40,19 +40,20 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
-  /* Create a new thread to execute FILE_NAME. */
+  
 
   // Initialize a struct we argument we want to use between the child and the parent
   struct parent_child* sync = malloc(sizeof(struct parent_child));
 
-  sema_init(&sync->sema, 0); //A semaphore for the wait
+  sema_init(&sync->sema, 0); // a semaphore for the wait
   sync->file_name = fn_copy; // The program name
   sync->success = true; // The return value of start_process
   sync->alive_count = 2; // Count to know who must free ressources
-  sync->has_already_wait = false;
+  sync->has_already_wait = false; // used to check that wait isn't called twice
 
   lock_init(&sync->alive_lock); // A lock to provide sync to alive_count
 
+  /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, sync);
 
   // Now we must wait for the child thread to be created before returning it
@@ -62,6 +63,7 @@ process_execute (const char *file_name)
   // We get awaken by child
   // Get the value of success for start_process
   bool success = sync->success;
+
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy);
 
@@ -71,9 +73,9 @@ process_execute (const char *file_name)
       free(sync);
       return -1;
   }
+
   // Insert the parent_child pair to the parent's list
-  struct thread* calling_thread = thread_current();
-  list_push_back(&(calling_thread->children_list), &sync->elem);
+  list_push_back(&(thread_current()->children_list), &sync->elem);
 
   return tid;
 }
@@ -81,11 +83,10 @@ process_execute (const char *file_name)
 /* A thread function that loads a user process and starts it
    running. */
 static void
-//start_process (void *file_name_)
 start_process (void *args)
 {
-  //printf("show debug\n");
-  //char *file_name = file_name_;
+
+  // Casting args
   struct parent_child* sync = (struct parent_child*)args;
   char *file_name = sync->file_name;
 
@@ -100,21 +101,24 @@ start_process (void *args)
   success = load (file_name, &if_.eip, &if_.esp);
 
 
-  // TODO wake the parent process
+  // wake the parent process
   // So that he can return the tid
-  // we have access to the semaphore given bye the parent, we can unlock it
   sync->success = success;
   sema_up(&sync->sema);
 
 
+  struct thread* calling_thread = thread_current();
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success)
+  {
+    printf("%s: exit(%d)\n", calling_thread->name, -1);
     thread_exit ();
+  }
 
   // Add reference to the parent_child pair for the child
-  struct thread* calling_thread = thread_current();
+
   sync->child_id = calling_thread->tid;
   calling_thread->parent = sync;
 
@@ -150,20 +154,19 @@ process_wait (tid_t child_tid)
     // if this is the correct pair, we down the semaphore
     if (pair->child_id == child_tid && !pair->has_already_wait)
     {
-      //printf("pair exit value is %d", pair->exit_status);
       pair->has_already_wait = true;
       sema_down(&pair->sema);
-      // When awaken, we have access to the exit value of the child
-      //printf("exit value %d", pair->exit_status);
-      //printf("pair exit value is %d", pair->exit_status);
+      // When awaken, we will have access to the exit value of the child
       return pair->exit_status;
     }
     else cur_elem = list_next(cur_elem);
   }
+  // No child with tid => return -1
   return -1;
 }
 
-//Try to free a parent_child pair, 1 if success, 0 otherwise
+// Try to free a parent_child pair, 1 if success, 0 otherwise
+// Helper funciton for process_exit
 int free_parent_child_pair(struct parent_child* p_c)
 {
 
@@ -172,14 +175,12 @@ int free_parent_child_pair(struct parent_child* p_c)
     // Use sync to update the count
     lock_acquire(&p_c->alive_lock);
     p_c->alive_count--;
-    if (p_c->alive_count == 0)
+    if (p_c->alive_count == 0) // In that case we need to free ressources
     {
       lock_release(&p_c->alive_lock);
       free(p_c);
-
       return 1;
     }
-    //p_c->has_already_wait = true;
     lock_release(&p_c->alive_lock);
   }
   return 0;
@@ -192,7 +193,6 @@ process_exit (void)
   // Try to free the pair connected to the process' parent if possible
   free_parent_child_pair(cur->parent);
 
-
   // Try to free the pairs associated with all children
   struct list_elem* cur_elem = list_begin(&cur->children_list);
   while (cur_elem != list_end(&cur->children_list))
@@ -203,8 +203,6 @@ process_exit (void)
 
   }
 
-
-  // TODO decrease status_count of all children of cur thread and of the parent of the thread
   uint32_t *pd;
 
   /* Destroy the current process's page directory and switch back
@@ -330,12 +328,14 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
-  /* Set up stack. */
+  /* Set up stack. (adding the arguments in done in load and not in setup_stack because we dont't have access
+                    the file_name in the setup_stack and I didn't want to change the setup_stack parameters)
+  */
   if (!setup_stack (esp)){
     goto done;
   }
 
-  // We'll store the arguments in this
+  // We'll store the arguments in this (We know no maore than 32 arguments)
   char* list_args[32];
 
   // Tokenise the arguments
@@ -350,32 +350,31 @@ load (const char *file_name, void (**eip) (void), void **esp)
   }
 
   // We can store the name of the program in the thread, so it can be accessed for somewere else
+  // First we delete the old name writent by init_thread
+  memset(t->name, 0, sizeof(t->name));
+  // And then we copy the correct program name, w/o the arguments
   memcpy(t->name, list_args[0], strlen(list_args[0]));
- //  printf("thread = %s\n", t->name);
 
-  // Write all arguments
+  // Write all arguments in the stack
   void* stack_p = *esp;
 
-  for (int i = 0; i < n_args; ++i)
+  for (int i = 0; i < n_args; ++i) // For each arg
   {
-    int arg_len = strlen(list_args[i]) + 1;
-    stack_p -= arg_len;
-    memcpy(stack_p, list_args[i], arg_len);
-    list_args[i] = stack_p;
+    int arg_len = strlen(list_args[i]) + 1; // Get the length including \0
+    stack_p -= arg_len; // Make some room in the stack
+    memcpy(stack_p, list_args[i], arg_len); // write it
+    list_args[i] = stack_p; // Now we store the address in stack of the argument in the list, to be used later
   }
 
   // Word align
-  while ((int)stack_p % 4)
-  {
-    stack_p -= 1;
-  }
-
+  while ((int)stack_p % 4) stack_p -= 1;
+  
   // Add null element
   char* null = NULL;
   stack_p -= sizeof(char*);
   memcpy(stack_p, &null, sizeof(char*));
 
-  // Add args pointers
+  // Add args pointers, store address of the last argument to be used later
   void* last_arg;
   for (int i = n_args-1; i >= 0; --i)
   {

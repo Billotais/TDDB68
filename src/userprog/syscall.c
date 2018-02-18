@@ -14,40 +14,26 @@
 
 
 static void syscall_handler (struct intr_frame *);
+bool valid_pointer(void* ptr);
+void valid_string(const char* ptr);
+void valid_buffer(void* ptr, unsigned buf_size);
+void* incr_and_check(void* ptr);
+void exit(int exit_value);
+
 
 void
 syscall_init (void)
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
+// Check for the validity of a pointer (< PHYS_BASE and in the pagedir)
 bool valid_pointer(void* ptr)
 {
     return (ptr < PHYS_BASE && pagedir_get_page(thread_current()->pagedir, ptr) != NULL);
 }
-void exit(int exit_value)
-{
-    struct thread* calling_thread = thread_current();
-    // Make the exit value availible for the parents
-    calling_thread->parent->exit_status = exit_value;
-    // Wake up any parent that might be waiting
-    sema_up(&calling_thread->parent->sema);
-    //calling_thread->parent->has_already_wait = true;
 
-    // For each file
-    for (int i = 0; i < MAX_FILES + NB_RESERVED_FILES; ++i)
-    {
-        // If open, close it
-        if (calling_thread->files[i] != NULL)
-        {
-            file_close(calling_thread->files[i]);
-            calling_thread->files[i] = NULL;
-        }
-    }
-    // exit the thread
-
-    printf("%s: exit(%d)\n", calling_thread->name, exit_value);
-    thread_exit ();
-}
+// Check for the validity of a string
+// Check every character's pointer with valid_pointer, until \0, exit if not valid
 void valid_string(const char* ptr)
 {
     char* prov = ptr;
@@ -57,6 +43,8 @@ void valid_string(const char* ptr)
     } while(*prov != '\0');
 
 }
+// Check for the validity of a buffer
+// Check every buffer slot in range form 0 to buf_size, exit if not valid
 void valid_buffer(void* ptr, unsigned buf_size)
 {
     void* prov = ptr;
@@ -64,9 +52,8 @@ void valid_buffer(void* ptr, unsigned buf_size)
     {
         if (!valid_pointer(prov)) exit(-1);
     }
-
-
 }
+// Return the given pointer incremented by 4, exit if new pointer's value not valid
 void* incr_and_check(void* ptr)
 {
     ptr+=4;
@@ -77,13 +64,12 @@ void* incr_and_check(void* ptr)
 static void
 syscall_handler (struct intr_frame *f UNUSED)
 {
+  //printf("a\n");
   // We get the stack pointer, casting it to int*
   int* user_stack = (int*)f->esp;
   if (!valid_pointer(user_stack)) exit(-1);
 
-
-  // Now we execute the correct code depending on the tzpe of szstem call.
-
+  // Now we execute the correct code depending on the tzpe of szstem call
   if (*user_stack == SYS_HALT)
   {
       power_off();
@@ -94,16 +80,19 @@ syscall_handler (struct intr_frame *f UNUSED)
       user_stack = incr_and_check(user_stack);
       const char* file_name = (const char*)*user_stack;
       valid_string(file_name);
+
       user_stack = incr_and_check(user_stack);
       unsigned initial_size = (unsigned)*user_stack;
+
       f->eax = filesys_create(file_name, initial_size);
   }
   else if (*user_stack == SYS_OPEN)
   {
-      // We trz to open the file
+      // We try to open the file
       user_stack = incr_and_check(user_stack);
       const char* file_name = (const char*)*user_stack;
       valid_string(file_name);
+
       struct file* opened = filesys_open(file_name);
 
       // If we can't, error
@@ -129,7 +118,6 @@ syscall_handler (struct intr_frame *f UNUSED)
       }
       // If nothing found, error
       f->eax = -1;
-
   }
   else if (*user_stack == SYS_CLOSE)
   {
@@ -151,21 +139,24 @@ syscall_handler (struct intr_frame *f UNUSED)
   {
       user_stack = incr_and_check(user_stack);
       int fd = *user_stack;
+
       // If we want to read from the console
       if (fd == STDIN_FILENO)
       {
           user_stack = incr_and_check(user_stack);
           char* buffer = (char *)*user_stack;
+
           user_stack = incr_and_check(user_stack);
           size_t to_read = *user_stack;
+
           valid_buffer(buffer, to_read);
 
           // Check that the user can access this memory
-          if ((void*)buffer >= PHYS_BASE)
+          /*if ((void*)buffer >= PHYS_BASE)
           {
               f->eax = -1;
               return;
-          }
+          }*/
           // Read from the console to_read times
           for (size_t i = 0; i < to_read; ++i)
           {
@@ -191,13 +182,16 @@ syscall_handler (struct intr_frame *f UNUSED)
               f->eax = -1;
               return;
           }
-          // Read from the
+          // Get arguments
           user_stack = incr_and_check(user_stack);
           void* buffer = (void *)(*user_stack);
 
           user_stack = incr_and_check(user_stack);
           unsigned size_to_read = (unsigned)*user_stack;
+
           valid_buffer(buffer, size_to_read);
+
+          // Read the file into the buffer
           int read = file_read(to_read, buffer, size_to_read);
 
           f->eax = read;
@@ -215,10 +209,13 @@ syscall_handler (struct intr_frame *f UNUSED)
       {
           user_stack = incr_and_check(user_stack);
           const char* to_write = (const char*)(*user_stack);
+
           // Get the size to write, limit it if too big
           user_stack = incr_and_check(user_stack);
           size_t size_to_write = (size_t)*user_stack;
+
           valid_buffer((void*)to_write, size_to_write);
+
           size_to_write = size_to_write > MAX_BYTES_CONSOLE ? MAX_BYTES_CONSOLE : size_to_write;
           // Write to the console
 
@@ -243,17 +240,20 @@ syscall_handler (struct intr_frame *f UNUSED)
               f->eax = -1;
               return;
           }
-          // Write to the file
+          // Get arguments
           user_stack = incr_and_check(user_stack);
           void* buffer = (void*)*user_stack;
-          if (buffer >= PHYS_BASE)
+          /*if (buffer >= PHYS_BASE)
           {
               f->eax = -1;
               return;
-          }
+          }*/
           user_stack = incr_and_check(user_stack);
           unsigned size_to_write = (unsigned)*user_stack;
+
           valid_buffer(buffer, size_to_write);
+
+          // Write into the file from the buffer  
           int written = file_write(to_write, buffer, size_to_write);
 
           f->eax = written;
@@ -275,17 +275,44 @@ syscall_handler (struct intr_frame *f UNUSED)
   {
       user_stack = incr_and_check(user_stack);
       tid_t id = (tid_t)*user_stack;
+
       int exit_value = process_wait(id);
       f->eax = exit_value;
-
-
   }
   else if (*user_stack == SYS_EXIT)
   {
-      // Get the calling thread
       user_stack = incr_and_check(user_stack);
       int exit_value = *user_stack;
+
       exit(exit_value);
 
   }
+}
+// I created a specific function for exit so it can be called by other function (incr_and_check, valid_string, ...)
+void exit(int exit_value)
+{
+    struct thread* calling_thread = thread_current();
+
+    // Make the exit value availible for the parents
+    calling_thread->parent->exit_status = exit_value;
+
+    // Print the exit sentence to make the tests pass
+    printf("%s: exit(%d)\n", calling_thread->name, exit_value);
+
+    // Wake up any parent that might be waiting
+    sema_up(&calling_thread->parent->sema);
+
+    // For each file, close it
+    for (int i = 0; i < MAX_FILES + NB_RESERVED_FILES; ++i)
+    {
+        // If open, close it
+        if (calling_thread->files[i] != NULL)
+        {
+            file_close(calling_thread->files[i]);
+            calling_thread->files[i] = NULL;
+        }
+    }
+    
+    // exit the thread
+    thread_exit ();
 }
