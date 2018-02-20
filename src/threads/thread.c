@@ -191,7 +191,7 @@ thread_create (const char *name, int priority,
   /* Stack frame for switch_threads(). */
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
-
+  //printf("Thread_create : %s\n", name); // EXECUTED
   /* Add to run queue. */
   thread_unblock (t);
 
@@ -275,6 +275,7 @@ void
 thread_exit (void)
 {
   ASSERT (!intr_context ());
+  //printf("Thread exit\n"); // NOT EXECUTED
 
 #ifdef USERPROG
   process_exit ();
@@ -446,6 +447,7 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init(&t->children_list);
   t->parent = NULL;
   #endif
+  
 
 }
 

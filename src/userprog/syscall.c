@@ -238,13 +238,13 @@ syscall_handler (struct intr_frame *f UNUSED)
           // Get arguments
           user_stack = incr_and_check(user_stack);
           void* buffer = (void*)*user_stack;
-    
+
           user_stack = incr_and_check(user_stack);
           unsigned size_to_write = (unsigned)*user_stack;
 
           valid_buffer(buffer, size_to_write);
 
-          // Write into the file from the buffer  
+          // Write into the file from the buffer
           int written = file_write(to_write, buffer, size_to_write);
 
           f->eax = written;

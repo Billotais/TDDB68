@@ -40,7 +40,7 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
-  
+
 
   // Initialize a struct we argument we want to use between the child and the parent
   struct parent_child* sync = malloc(sizeof(struct parent_child));
@@ -106,7 +106,7 @@ start_process (void *args)
   sync->success = success;
   sema_up(&sync->sema);
 
-
+  //printf("start process awaken\n"); // EXECUTED
   struct thread* calling_thread = thread_current();
 
   /* If load failed, quit. */
@@ -156,6 +156,7 @@ process_wait (tid_t child_tid)
     {
       pair->has_already_wait = true;
       sema_down(&pair->sema);
+      //printf("Process has waited\n");
       // When awaken, we will have access to the exit value of the child
       return pair->exit_status;
     }
@@ -368,7 +369,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   // Word align
   while ((int)stack_p % 4) stack_p -= 1;
-  
+
   // Add null element
   char* null = NULL;
   stack_p -= sizeof(char*);
