@@ -20,8 +20,8 @@ void valid_string(const char* ptr);
 void valid_buffer(void* ptr, unsigned buf_size);
 void* incr_and_check(void* ptr);
 void exit(int exit_value);
-
-
+void seek(int fd, unsigned position);
+int filesize(int fd);
 void
 syscall_init (void)
 {
@@ -278,6 +278,33 @@ syscall_handler (struct intr_frame *f UNUSED)
       exit(exit_value);
 
   }
+  else if (*user_stack == SYS_TELL)
+  {
+      user_stack = incr_and_check(user_stack);
+      int fd = *user_stack;
+      // If not valid file
+      if (0 > fd || fd >= MAX_FILES + NB_RESERVED_FILES) return;
+
+      // Get the associated file, exit if no existing
+      struct thread* calling_thread = thread_current();
+      struct file* file = calling_thread->files[fd];
+      if (file == NULL) return;
+      f->eax = file_tell(file);
+  }
+  else if (*user_stack == SYS_FILESIZE)
+  {
+      user_stack = incr_and_check(user_stack);
+      int fd = *user_stack;
+      f->eax = filesize(fd);
+  }
+  else if (*user_stack == SYS_REMOVE)
+  {
+      user_stack = incr_and_check(user_stack);
+      const char* file_name = (const char*)*user_stack;
+      valid_string(file_name);
+      f->eax = filesys_remove(file_name);
+
+  }
 }
 // I created a specific function for exit so it can be called by other function (incr_and_check, valid_string, ...)
 void exit(int exit_value)
@@ -306,4 +333,31 @@ void exit(int exit_value)
 
     // exit the thread
     thread_exit ();
+}
+void seek(int fd, unsigned position)
+{
+    unsigned file_size = filesize(fd);
+    if (position >= file_size) position = file_size - 1;
+
+    // If not valid file
+    if (0 > fd || fd >= MAX_FILES + NB_RESERVED_FILES) return;
+
+    // Get the associated file, exit if no existing
+    struct thread* calling_thread = thread_current();
+    struct file* file = calling_thread->files[fd];
+    if (file == NULL) return;
+    file_seek(file, position);
+}
+int filesize(int fd)
+{
+
+    if (0 > fd || fd >= MAX_FILES + NB_RESERVED_FILES) return -1;
+
+    // Get the associated file, exit if no existing
+    struct thread* calling_thread = thread_current();
+    struct file* file = calling_thread->files[fd];
+
+    // Get thee* file = calling_thread->files[fd];
+    if (file == NULL) return -1;
+    return file_length(file);
 }
