@@ -107,16 +107,18 @@ start_process (void *args)
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
+  
   if (!success)
   {
+	 
     printf("%s: exit(%d)\n", calling_thread->name, -1);
-    sema_up(&sync->sema);
+    sema_up(&sync->sema); 
     thread_exit ();
   }
-  
+  sema_up(&sync->sema);
   // wake the parent process
   // So that he can return the tid
-  sema_up(&sync->sema);	
+  //sema_up(&sync->sema);	
   
   // Add reference to the parent_child pair for the child
   sync->child_id = calling_thread->tid;
