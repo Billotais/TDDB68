@@ -40,8 +40,6 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
-
-
   // Initialize a struct we argument we want to use between the child and the parent
   struct parent_child* sync = malloc(sizeof(struct parent_child));
 
@@ -65,7 +63,10 @@ process_execute (const char *file_name)
   bool success = sync->success;
 
   if (tid == TID_ERROR)
+  {
     palloc_free_page (fn_copy);
+	return -1;
+  }
 
   // if program didn't run, return -1
   if (!success)
@@ -100,13 +101,8 @@ start_process (void *args)
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
 
-
-  // wake the parent process
-  // So that he can return the tid
   sync->success = success;
-  sema_up(&sync->sema);
 
-  //printf("start process awaken\n"); // EXECUTED
   struct thread* calling_thread = thread_current();
 
   /* If load failed, quit. */
@@ -114,11 +110,15 @@ start_process (void *args)
   if (!success)
   {
     printf("%s: exit(%d)\n", calling_thread->name, -1);
+    sema_up(&sync->sema);
     thread_exit ();
   }
-
+  
+  // wake the parent process
+  // So that he can return the tid
+  sema_up(&sync->sema);	
+  
   // Add reference to the parent_child pair for the child
-
   sync->child_id = calling_thread->tid;
   calling_thread->parent = sync;
 
@@ -156,7 +156,6 @@ process_wait (tid_t child_tid)
     {
       pair->has_already_wait = true;
       sema_down(&pair->sema);
-      //printf("Process has waited\n");
       // When awaken, we will have access to the exit value of the child
       return pair->exit_status;
     }
@@ -192,7 +191,7 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   // Try to free the pair connected to the process' parent if possible
-  free_parent_child_pair(cur->parent);
+  int freed = free_parent_child_pair(cur->parent);
 
   // Try to free the pairs associated with all children
   struct list_elem* cur_elem = list_begin(&cur->children_list);
@@ -201,6 +200,7 @@ process_exit (void)
     struct parent_child* pair = list_entry(cur_elem, struct parent_child, elem);
     cur_elem = list_next(cur_elem);
     free_parent_child_pair(pair);
+
 
   }
 
