@@ -18,12 +18,16 @@ struct file *
 file_open (struct inode *inode) 
 {
   struct file *file = calloc (1, sizeof *file);
-  if (inode != NULL && file != NULL)
+  if (inode != NULL && file != NULL) 
     {
-      file->inode = inode;
-      file->pos = 0;
-      file->deny_write = false;
-      return file;
+      if (!inode_removed(inode)) // Check that the file hasn't been removed
+      {
+        file->inode = inode;
+        file->pos = 0;
+        file->deny_write = false;
+        return file;
+      }
+      
     }
   else
     {
