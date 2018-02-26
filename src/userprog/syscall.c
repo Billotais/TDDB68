@@ -65,7 +65,6 @@ void* incr_and_check(void* ptr)
 static void
 syscall_handler (struct intr_frame *f UNUSED)
 {
-  //printf("a\n");
   // We get the stack pointer, casting it to int*
   int* user_stack = (int*)f->esp;
   if (!valid_pointer(user_stack)) exit(-1);
@@ -84,7 +83,6 @@ syscall_handler (struct intr_frame *f UNUSED)
 
       user_stack = incr_and_check(user_stack);
       unsigned initial_size = (unsigned)*user_stack;
-
       f->eax = filesys_create(file_name, initial_size);
   }
   else if (*user_stack == SYS_OPEN)
@@ -290,6 +288,16 @@ syscall_handler (struct intr_frame *f UNUSED)
       struct file* file = calling_thread->files[fd];
       if (file == NULL) return;
       f->eax = file_tell(file);
+  }
+  else if (*user_stack == SYS_SEEK)
+  {
+    user_stack = incr_and_check(user_stack);
+    int fd = *user_stack;
+    user_stack = incr_and_check(user_stack);
+    unsigned position = (unsigned)*user_stack;
+    seek(fd, position);
+
+
   }
   else if (*user_stack == SYS_FILESIZE)
   {

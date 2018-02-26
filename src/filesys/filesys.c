@@ -11,7 +11,6 @@
 
 /* The disk that contains the file system. */
 struct disk *filesys_disk;
-struct lock fs_lock;
 static void do_format (void);
 
 /* Initializes the file system module.
@@ -25,7 +24,6 @@ filesys_init (bool format)
 
   inode_init ();
   free_map_init ();
-  lock_init(&fs_lock);
 
   if (format) 
     do_format ();
@@ -38,9 +36,7 @@ filesys_init (bool format)
 void
 filesys_done (void) 
 {
-  lock_acquire(&fs_lock);
   free_map_close ();
-  lock_release(&fs_lock);
 }
 
 /* Creates a file named NAME with the given INITIAL_SIZE.
@@ -50,7 +46,6 @@ filesys_done (void)
 bool
 filesys_create (const char *name, off_t initial_size) 
 {
-  lock_acquire(&fs_lock);
   disk_sector_t inode_sector = 0;
   struct dir *dir = dir_open_root ();
   bool success = (dir != NULL
@@ -60,7 +55,6 @@ filesys_create (const char *name, off_t initial_size)
   if (!success && inode_sector != 0) 
     free_map_release (inode_sector, 1);
   dir_close (dir);
-  lock_release(&fs_lock);
   return success;
 }
 
@@ -89,19 +83,16 @@ filesys_open (const char *name)
 bool
 filesys_remove (const char *name) 
 {
-  lock_acquire(&fs_lock);
   struct dir *dir = dir_open_root ();
   bool success = dir != NULL && dir_remove (dir, name);
   dir_close (dir); 
-  lock_release(&fs_lock);
-  return success;
+  return success; 
 }
 
 /* Formats the file system. */
 static void
 do_format (void)
 {
-  
   printf ("Formatting file system...");
   free_map_create ();
   if (!dir_create (ROOT_DIR_SECTOR, 16))

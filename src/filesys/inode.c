@@ -70,7 +70,7 @@ void
 inode_init (void) 
 {
   lock_init(&general_lock);
-  list_init (&open_inodes);
+  list_init(&open_inodes);
 }
 
 /* Initializes an inode with LENGTH bytes of data and
@@ -135,8 +135,10 @@ inode_open (disk_sector_t sector)
       inode = list_entry (e, struct inode, elem);
       if (inode->sector == sector) 
         {
+		  	
           inode_reopen (inode);
           lock_release(&general_lock);
+          
           return inode; 
         }
     }
@@ -144,9 +146,12 @@ inode_open (disk_sector_t sector)
   /* Allocate memory. */
   inode = malloc (sizeof *inode);
   if (inode == NULL)
+  {
+	lock_release(&general_lock);  
     return NULL;
-
+  }
   /* Initialize. */
+  
   list_push_front (&open_inodes, &inode->elem);
   inode->sector = sector;
   inode->open_cnt = 1;
@@ -375,8 +380,9 @@ inode_deny_write (struct inode *inode)
 {
   lock_acquire(&inode->inode_lock);
   inode->deny_write_cnt++;
-  ASSERT (inode->deny_write_cnt <= inode->open_cnt);
   lock_release(&inode->inode_lock);
+  ASSERT (inode->deny_write_cnt <= inode->open_cnt);
+  
 }
 
 /* Re-enables writes to INODE.
@@ -385,9 +391,10 @@ inode_deny_write (struct inode *inode)
 void
 inode_allow_write (struct inode *inode) 
 {
-  lock_acquire(&inode->inode_lock);
+  
   ASSERT (inode->deny_write_cnt > 0);
   ASSERT (inode->deny_write_cnt <= inode->open_cnt);
+  lock_acquire(&inode->inode_lock);
   inode->deny_write_cnt--;
   lock_release(&inode->inode_lock);
 }
