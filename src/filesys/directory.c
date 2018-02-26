@@ -24,10 +24,15 @@ struct dir_entry
 struct lock dir_lock;
 /* Creates a directory with space for ENTRY_CNT entries in the
    given SECTOR.  Returns true if successful, false on failure. */
+   
+struct lock* get_dir_lock()
+{
+	return &dir_lock;
+}
 bool
 dir_create (disk_sector_t sector, size_t entry_cnt) 
 {
-  lock_init(&dir_lock);
+  //lock_init(&dir_lock);
   return inode_create (sector, entry_cnt * sizeof (struct dir_entry));
 }
 
@@ -37,7 +42,7 @@ struct dir *
 dir_open (struct inode *inode) 
 {
   //lock_init(&dir_lock);
-  //lock_acquire(&dir_lock);
+  lock_acquire(&dir_lock);
   
   struct dir *dir = calloc (1, sizeof *dir);
   if (inode != NULL && dir != NULL)
@@ -45,7 +50,7 @@ dir_open (struct inode *inode)
 	  	
       dir->inode = inode;
       dir->pos = 0;
-      //lock_release(&dir_lock);
+      lock_release(&dir_lock);
       
       return dir;
     }
@@ -53,7 +58,7 @@ dir_open (struct inode *inode)
     {
       inode_close (inode);
       free (dir);
-      //lock_release(&dir_lock);
+      lock_release(&dir_lock);
       
       
       return NULL; 
@@ -80,13 +85,13 @@ dir_reopen (struct dir *dir)
 void
 dir_close (struct dir *dir) 
 {
-  //lock_acquire(&dir_lock);
+  lock_acquire(&dir_lock);
   if (dir != NULL)
     {
       inode_close (dir->inode);
       free (dir);
     }
-  //lock_release(&dir_lock);
+  lock_release(&dir_lock);
 }
 
 /* Returns the inode encapsulated by DIR. */
@@ -132,7 +137,7 @@ bool
 dir_lookup (const struct dir *dir, const char *name,
             struct inode **inode) 
 {
-  //lock_acquire(&dir_lock);
+  lock_acquire(&dir_lock);
   struct dir_entry e;
 
   ASSERT (dir != NULL);
@@ -143,7 +148,7 @@ dir_lookup (const struct dir *dir, const char *name,
   else
     *inode = NULL;
 
-  //lock_release(&dir_lock);
+  lock_release(&dir_lock);
   return *inode != NULL;
 }
 
@@ -168,7 +173,7 @@ dir_add (struct dir *dir, const char *name, disk_sector_t inode_sector)
   if (*name == '\0' || strlen (name) > NAME_MAX)
     return false;
     
-  //lock_acquire(&dir_lock);
+  lock_acquire(&dir_lock);
   /* Check that NAME is not in use. */
   if (lookup (dir, name, NULL, NULL))
     goto done;
@@ -192,7 +197,7 @@ dir_add (struct dir *dir, const char *name, disk_sector_t inode_sector)
   success = inode_write_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
 
  done:
-  //lock_release(&dir_lock);
+  lock_release(&dir_lock);
   return success;
 }
 
@@ -210,7 +215,7 @@ dir_remove (struct dir *dir, const char *name)
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
   
-  //lock_acquire(&dir_lock);
+  lock_acquire(&dir_lock);
   
   /* Find directory entry. */
   if (!lookup (dir, name, &e, &ofs))
@@ -232,7 +237,7 @@ dir_remove (struct dir *dir, const char *name)
 
  done:
   inode_close (inode);
-  //lock_release(&dir_lock);
+  lock_release(&dir_lock);
   return success;
 }
 
@@ -243,7 +248,7 @@ bool
 dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
 {
   struct dir_entry e;
-  //lock_acquire(&dir_lock);
+  lock_acquire(&dir_lock);
   while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) 
     {
       dir->pos += sizeof e;
@@ -254,6 +259,6 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
           return true;
         } 
     }
-  //lock_release(&dir_lock);
+  lock_release(&dir_lock);
   return false;
 }

@@ -47,8 +47,9 @@ free_map_allocate (size_t cnt, disk_sector_t *sectorp)
 void
 free_map_release (disk_sector_t sector, size_t cnt)
 {
-  lock_acquire(&free_lock);
+  
   ASSERT (bitmap_all (free_map, sector, cnt));
+  lock_acquire(&free_lock);
   bitmap_set_multiple (free_map, sector, cnt, false);
   bitmap_write (free_map, free_map_file);
   lock_release(&free_lock);
