@@ -405,6 +405,7 @@ inode_length (const struct inode *inode)
 {
   return inode->data.length;
 }
+// Used by file_open to check that the file hasn't been marked as removed
 bool inode_removed(struct inode *inode)
 {
   return inode->removed;

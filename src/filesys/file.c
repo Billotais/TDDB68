@@ -3,6 +3,7 @@
 #include "filesys/inode.h"
 #include "threads/malloc.h"
 #include "threads/synch.h"
+#include <stdio.h>
 
 /* An open file. */
 struct file 
@@ -22,8 +23,8 @@ file_open (struct inode *inode)
   struct file *file = calloc (1, sizeof *file);
   if (inode != NULL && file != NULL) 
     {
-      if (!inode_removed(inode)) // Check that the file hasn't been removed
-      {
+      if (!inode_removed(inode)) // Check that the file hasn't been marked as removed
+      {  
         file->inode = inode;
         file->pos = 0;
         file->deny_write = false;

@@ -18,7 +18,7 @@ static void do_format (void);
 void
 filesys_init (bool format) 
 {
-  lock_init(get_dir_lock());
+  lock_init(get_dir_lock()); // Initialize the directory lock
   filesys_disk = disk_get (0, 1);
   if (filesys_disk == NULL)
     PANIC ("hd0:1 (hdb) not present, file system initialization failed");
@@ -74,6 +74,7 @@ filesys_open (const char *name)
     dir_lookup (dir, name, &inode);
   dir_close (dir);
 
+  	
   return file_open (inode);
 }
 

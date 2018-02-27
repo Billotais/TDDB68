@@ -25,6 +25,7 @@ struct lock dir_lock;
 /* Creates a directory with space for ENTRY_CNT entries in the
    given SECTOR.  Returns true if successful, false on failure. */
    
+// Used by filesys init to init the dir_lock
 struct lock* get_dir_lock()
 {
 	return &dir_lock;
@@ -32,7 +33,6 @@ struct lock* get_dir_lock()
 bool
 dir_create (disk_sector_t sector, size_t entry_cnt) 
 {
-  //lock_init(&dir_lock);
   return inode_create (sector, entry_cnt * sizeof (struct dir_entry));
 }
 
@@ -41,7 +41,6 @@ dir_create (disk_sector_t sector, size_t entry_cnt)
 struct dir *
 dir_open (struct inode *inode) 
 {
-  //lock_init(&dir_lock);
   lock_acquire(&dir_lock);
   
   struct dir *dir = calloc (1, sizeof *dir);
@@ -59,7 +58,6 @@ dir_open (struct inode *inode)
       inode_close (inode);
       free (dir);
       lock_release(&dir_lock);
-      
       
       return NULL; 
     }
